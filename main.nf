@@ -1,6 +1,7 @@
 include {DORADO_BASECALL; DORADO_BASECALL_BARCODING} from "./modules/basecall.nf"
 include {MERGE_READS; READ_STATS; READ_HIST; CONVERT_EXCEL; VALIDATE_SAMPLESHEET; CONVERT_READS; FILTER_READS} from './modules/reads.nf'
-include {EMU} from './modules/taxonomy.nf'
+include {EMU_ABUNDANCE; EMU_COMBINE} from './modules/taxonomy.nf'
+include {MAKE_REPORT} from './modules/report.nf'
 
 if (params.kit && !params.samplesheet) {
     error "If --kit is specified, --samplesheet must also be provided."
@@ -58,7 +59,23 @@ workflow {
     CONVERT_READS(ch_reads) | READ_STATS
     
     ch_reads_conv = CONVERT_READS.out
-    ch_reads_conv = params.filter ? FILTER_READS(ch_reads_conv).ch_filtered_reads : ch_reads_conv
     
-    EMU(ch_reads_conv)
+    if (params.filter) {
+        FILTER_READS(ch_reads_conv)
+        ch_reads_emu = FILTER_READS.out.ch_filtered_reads
+        ch_filtered_counts = FILTER_READS.out.counts
+    } else {
+        ch_reads_emu = ch_reads_conv
+        ch_filtered_counts = Channel.empty()
+    }
+    
+    EMU_ABUNDANCE(ch_reads_emu)
+    EMU_COMBINE(EMU_ABUNDANCE.out.ch_abundance.collect())
+    
+    MAKE_REPORT(
+        READ_STATS.out.counts.collect(),
+        ch_filtered_counts.collect().ifEmpty([]),
+        EMU_ABUNDANCE.out.counts.collect().ifEmpty([]),
+        EMU_ABUNDANCE.out.ch_abundance.collect().ifEmpty([])
+    )
 }

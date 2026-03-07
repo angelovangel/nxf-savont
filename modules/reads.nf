@@ -93,17 +93,20 @@ process READ_STATS {
 
     output:
         path "*readstats.tsv"
+        path "*.reads.txt", emit: counts
 
     script:
     
     """
     faster -t ${reads} > ${reads.simpleName}.readstats.tsv
+    awk 'NR==2 {print \$2}' ${reads.simpleName}.readstats.tsv > ${reads.simpleName}.reads.txt
     """
 }
 
 process FILTER_READS {
     container 'docker.io/aangeloo/nxf-tgs:latest'
-    publishDir "${params.outdir}/00-basecall/filtered", mode: 'copy', pattern: '*readstats.tsv'
+    tag "${reads.simpleName}"
+    //publishDir "${params.outdir}/00-basecall/filtered", mode: 'copy', pattern: '*readstats.tsv'
     errorStrategy {
         if (task.exitStatus == 42) {
             println "FILTER_READS: [WARNING] ${reads} has no reads after filtering. Ignoring."
@@ -118,15 +121,17 @@ process FILTER_READS {
     output:
         path "*fastq.gz", emit: ch_filtered_reads
         path "*readstats.tsv"
+        path "*.filtered_reads.txt", emit: counts
     
     script:
     """
     faster --filterl 1000 $reads | faster --filterl -2000 - > ${reads.simpleName}.filtered.fastq
-    if [ wc -l < ${reads.simpleName}.filtered.fastq ] -eq 0 ]; then
+    if [ \$(wc -l < ${reads.simpleName}.filtered.fastq) -eq 0 ]; then
         exit 42
     fi
     pigz -c ${reads.simpleName}.filtered.fastq > ${reads.simpleName}.filtered.fastq.gz
     faster -t ${reads.simpleName}.filtered.fastq.gz > ${reads.simpleName}.filtered.readstats.tsv
+    awk 'NR==2 {print \$2}' ${reads.simpleName}.filtered.readstats.tsv > ${reads.simpleName}.filtered_reads.txt
     """
 }
 
