@@ -44,7 +44,7 @@ process MERGE_READS {
     }
     tag "${samplename} - ${barcode}"
 
-    publishDir "$params.outdir/00-basecall/processed", mode: 'copy', pattern: '*{fastq.gz,fastq,bam}'
+    //publishDir "$params.outdir/00-basecall/processed", mode: 'copy', pattern: '*{fastq.gz,fastq,bam}'
 
     input:
         tuple val(samplename), val(barcode), path(bam_pass)
