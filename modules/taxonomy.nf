@@ -14,7 +14,7 @@ process EMU_ABUNDANCE {
 
     script:
     """
-    emu abundance --keep-counts --output-dir . --threads $task.cpus $reads
+    emu abundance --db \$EMU_DATABASE_DIR/${params.db} --keep-counts --output-dir . --threads $task.cpus $reads
     
     # Extract stats from rel-abundance.tsv
     # mapped: sum of estimated counts (excluding the last 3 rows)
