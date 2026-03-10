@@ -54,12 +54,12 @@ function getSelectedSampleNames() {
 function getHeatmapColor(val) {
     if (val <= 0) return { bg: '#f9fafb', text: 'black' };
     const scaled = Math.pow(val, 0.4);
-    const hue = 240;
-    const saturation = 70;
-    const lightness = 100 - (scaled * 60);
+    const hue = 60 * (1 - scaled); // From 60 (Yellow) to 0 (Red)
+    const saturation = 20 + (scaled * 80); // From 20% to 100%
+    const lightness = 98 - (scaled * 63);   // From 98% (pale) to 35% (deep red)
     return {
         bg: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
-        text: lightness < 60 ? 'white' : 'black'
+        text: lightness < 55 ? 'white' : 'black'
     };
 }
 
