@@ -1,5 +1,40 @@
 
-process EMU_ABUNDANCE {
+process SAVONT_ASV {
+    container 'docker.io/aangeloo/nxf-savont:latest'
+    tag "${reads.name}"
+    publishDir "${params.outdir}/01-taxonomy", mode: 'copy'
+
+    input:
+        path reads
+
+    output:
+        path "asvs", emit: ch_asvs
+
+    script:
+    """
+    savont asv $reads -o asvs -t $task.cpus
+    """
+}
+
+process SAVONT_CLASSIFY {
+    container 'docker.io/aangeloo/nxf-savont:latest'
+    tag "${params.db}"
+    publishDir "${params.outdir}/01-taxonomy", mode: 'copy'
+
+    input:
+        path asvs
+
+    output:
+        path "species_abundance.tsv", emit: ch_abundance
+
+    script:
+    def db = params.db == "emu" ? "emu_default" : "silva_db"
+    """
+    savont classify -i $asvs -o . --emu-db /databases/$db -t $task.cpus
+    """
+}
+
+/* process EMU_ABUNDANCE {
     container 'docker.io/aangeloo/emu:latest'
     //errorStrategy 'ignore'
     //maxForks 1 // avoid memory issues due to cpus x forks
@@ -79,4 +114,4 @@ process EMU_COMBINE {
     """
     emu combine-outputs . species
     """
-}
+} */

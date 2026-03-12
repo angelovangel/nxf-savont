@@ -1,27 +1,37 @@
-# aangeloo/emu 
-FROM continuumio/miniconda3:latest
-
-#
+# Build stage
+FROM rust:bookworm AS builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    cmake \
+    libclang-dev \
+    pkg-config \
     wget \
-    tar \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/bluenote-1577/savont && \
+    cd savont && \
+    cargo install --path .
+
+RUN mkdir -p /databases && \
+    /usr/local/cargo/bin/savont download --location /databases --emu-db && \
+    /usr/local/cargo/bin/savont download --location /databases --silva-db
+
+# Final stage
+FROM debian:bookworm-slim
+LABEL name="aangeloo/nxf-savont"
+LABEL maintainer="https://github.com/angelovangel"
+
+
+COPY --from=builder /usr/local/cargo/bin/savont /usr/local/bin/savont
+COPY --from=builder /databases /databases
+
+# 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN conda config --add channels defaults && \
-    conda config --add channels bioconda && \
-    conda config --add channels conda-forge && \
-    conda install -y emu osfclient && \
-    conda clean -afy
+# 
 
-# Download the Emu databases
-ENV EMU_DATABASE_DIR=/opt/emu_database
-RUN mkdir -p ${EMU_DATABASE_DIR} && \
-    cd ${EMU_DATABASE_DIR} && \
-    osf -p 56uf7 fetch osfstorage/emu-prebuilt/emu.tar && \
-    mkdir emu && tar -xvf emu.tar -C emu && rm emu.tar && \
-    osf -p 56uf7 fetch osfstorage/emu-prebuilt/rdp.tar && \
-    mkdir rdp && tar -xvf rdp.tar -C rdp && rm rdp.tar && \
-    osf -p 56uf7 fetch osfstorage/emu-prebuilt/unite-all.tar && \
-    mkdir unite-all && tar -xvf unite-all.tar -C unite-all && rm unite-all.tar
 
 
