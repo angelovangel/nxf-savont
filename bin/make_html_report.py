@@ -168,6 +168,7 @@ def main():
     <title>Savont Abundance Report</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         .heatmap-cell { transition: all 0.2s; }
@@ -211,11 +212,11 @@ def main():
 </head>
 <body class="bg-gray-100 min-h-screen p-6">
     <div class="max-w-7xl mx-auto space-y-8">
-        <!-- Reads Summary -->
+        <!-- Summary -->
         <details class="collapsible-section" open>
             <summary>
                 <div class="flex justify-between items-center w-full pr-8">
-                    <h1 class="text-xl font-bold text-gray-900">Reads Summary</h1>
+                    <h1 class="text-xl font-bold text-gray-900">Summary</h1>
                     <button onclick="downloadSummaryCSV(event)" class="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors text-sm font-semibold">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         Download CSV
@@ -238,7 +239,19 @@ def main():
         <details class="collapsible-section" open>
             <summary><h1 class="text-xl font-bold text-gray-900">Report Controls</h1></summary>
             <div class="section-content">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Color Scheme</label>
+                        <select id="colorSchemeSelect" class="w-full border-gray-300 rounded-md shadow-sm p-2 outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="Set1">Set1</option>
+                            <option value="Dark2">Dark2</option>
+                            <option value="Set2">Set2</option>
+                            <option value="Accent">Accent</option>
+                            <option value="Paired">Paired</option>
+                            <option value="Pastel1">Pastel1</option>
+                            <option value="Pastel2">Pastel2</option>
+                        </select>
+                    </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Group By</label>
                         <select id="rankSelect" class="w-full border-gray-300 rounded-md shadow-sm p-2 outline-none focus:ring-2 focus:ring-indigo-500">

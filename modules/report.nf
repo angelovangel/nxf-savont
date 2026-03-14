@@ -14,7 +14,7 @@ process MAKE_REPORT {
 
     script:
     """
-    echo -e "sample\\traw_reads\\traw_n50\\traw_Q20\\tfiltered_reads" > summary_counts.tsv
+    echo -e "sample\\traw_reads\\traw_n50\\traw_Q20\\tfiltered_reads\\tasvs" > summary_counts.tsv
     
     # Iterate through raw stats files
     for raw_stats in raw_stats/*.readstats.tsv; do
@@ -28,12 +28,14 @@ process MAKE_REPORT {
         
         # Check if filtered count exists (from SAVONT_ASV)
         if [ -f "filtered/\${sample}.filtered_reads.txt" ]; then
-            filtered_count=\$(cat "filtered/\${sample}.filtered_reads.txt")
+            filtered_count=\$(awk 'NR==2' "filtered/\${sample}.filtered_reads.txt" | awk '{print \$1}')
+            asvs=\$(awk 'NR==2' "filtered/\${sample}.filtered_reads.txt" | awk '{print \$2}')
         else
             filtered_count=\$raw_count
+            asvs=0
         fi
         
-        echo -e "\$sample\\t\$raw_count\\t\$raw_n50\\t\$raw_q20\\t\$filtered_count" >> summary_counts.tsv
+        echo -e "\$sample\\t\$raw_count\\t\$raw_n50\\t\$raw_q20\\t\$filtered_count\\t\$asvs" >> summary_counts.tsv
     done
 
     # Generate HTML report

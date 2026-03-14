@@ -85,7 +85,7 @@ process CONVERT_READS {
 
 process READ_STATS {
     container 'docker.io/aangeloo/nxf-tgs:latest'
-    publishDir "${params.outdir}/00-basecall", mode: 'copy', pattern: '*readstats.tsv'
+    publishDir "${params.outdir}/00-basecall/readqc", mode: 'copy', pattern: '*readstats.tsv'
     tag "${reads.simpleName}"
 
     input:

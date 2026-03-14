@@ -148,10 +148,17 @@ function renderHeatmap() {
 }
 
 // --- Chart Logic ---
-function getColor(name, index) {
-    if (name.startsWith('Other')) return '#9ca3af';
-    const colors = ['#4f46e5', '#ef4444', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6', '#f97316'];
-    return colors[index % colors.length];
+let colorCache = {};
+function getColor(name, index, total) {
+    if (name === 'Other') return '#9ca3af';
+    if (colorCache[name]) return colorCache[name];
+    
+    const scheme = document.getElementById('colorSchemeSelect').value;
+    const colors = chroma.brewer[scheme] || chroma.scale(scheme).mode('lch').colors(Math.max(total, 10));
+    
+    const color = colors[index % colors.length];
+    colorCache[name] = color;
+    return color;
 }
 
 function externalTooltipHandler(context) {
@@ -212,7 +219,7 @@ function updateChart() {
             const match = s.data.filter(d => d[rank] === taxon);
             return { abundance: match.reduce((sum, d) => sum + d.abundance, 0) * 100, counts: Math.round(match.reduce((sum, d) => sum + d.counts, 0)) };
         });
-        return { label: taxon, data: taxonData.map(d => d.abundance), counts: taxonData.map(d => d.counts), backgroundColor: getColor(taxon, i) };
+        return { label: taxon, data: taxonData.map(d => d.abundance), counts: taxonData.map(d => d.counts), backgroundColor: getColor(taxon, i, topTaxa.length) };
     });
 
     const otherData = selectedSamples.map(s => {
@@ -244,6 +251,10 @@ document.getElementById('rankSelect').addEventListener('change', () => {
 document.getElementById('topNInput').addEventListener('change', () => {
     updateChart();
     renderHeatmap();
+});
+document.getElementById('colorSchemeSelect').addEventListener('change', () => {
+    colorCache = {};
+    updateChart();
 });
 
 // --- Download Logic ---

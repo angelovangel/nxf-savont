@@ -2,25 +2,32 @@
 process SAVONT_ASV {
     container 'docker.io/aangeloo/nxf-savont:latest'
     tag "${reads.name}"
-    publishDir "${params.outdir}/01-taxonomy", mode: 'copy'
+    publishDir "${params.outdir}/01-taxonomy/asvs", mode: 'copy', pattern: "*.asvs.fasta"
 
     input:
         path reads
 
     output:
-        path "${reads.simpleName}", emit: ch_asvs
+        path "${reads.simpleName}.asvs.fasta", optional: true
+        path "${reads.simpleName}", emit: ch_asvs, type: 'directory'
         path "${reads.simpleName}.filtered_reads.txt", emit: counts
 
     script:
     """
     savont asv $reads -o ${reads.simpleName} -t $task.cpus --min-read-length ${params.minreadlength} --max-read-length ${params.maxreadlength}
     
-    # Extract valid reads from log
+    # Copy final_asvs.fasta to task root with sample name for publishDir
+    [ -f "${reads.simpleName}/final_asvs.fasta" ] && cp "${reads.simpleName}/final_asvs.fasta" "${reads.simpleName}.asvs.fasta" || true
+    
+    # Extract filtered read counts from log
     log_file=\$(ls ${reads.simpleName}/savont_*.log | head -n 1)
+    echo "filtered_reads\\tasvs" > ${reads.simpleName}.filtered_reads.txt
     if [ -f "\$log_file" ]; then
-        grep "Number of valid reads" "\$log_file" | awk -F' - ' '{print \$2}' | awk -F'.' '{print \$1}' | sed 's/ //g' > ${reads.simpleName}.filtered_reads.txt
+        counts=\$(grep "Number of valid reads" "\$log_file" | awk -F' - ' '{print \$2}' | awk -F'.' '{print \$1}' | sed 's/ //g')
+        asvs=\$(grep "Final consensus count after EM refinement:" "\$log_file" | awk -F': ' '{print \$2}' | awk -F'.' '{print \$1}' | sed 's/ //g')
+        echo "\$counts\\t\$asvs" >> ${reads.simpleName}.filtered_reads.txt
     else
-        echo "0" > ${reads.simpleName}.filtered_reads.txt
+        echo "0\\t0" >> ${reads.simpleName}.filtered_reads.txt
     fi
     """
 }

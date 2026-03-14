@@ -11,7 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN git clone https://github.com/bluenote-1577/savont && \
     cd savont && \
-    cargo install --path .
+    cargo install --path . && \
+    cd .. && \
+    git clone https://github.com/angelovangel/faster && \
+    cd faster && \
+    cargo build --release
 
 RUN mkdir -p /databases && \
     /usr/local/cargo/bin/savont download --location /databases --emu-db && \
@@ -24,6 +28,7 @@ LABEL maintainer="https://github.com/angelovangel"
 
 
 COPY --from=builder /usr/local/cargo/bin/savont /usr/local/bin/savont
+COPY --from=builder /faster/target/release/faster /usr/local/bin/faster
 COPY --from=builder /databases /databases
 
 # 
