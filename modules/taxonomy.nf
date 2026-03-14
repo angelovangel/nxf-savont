@@ -44,10 +44,10 @@ process SAVONT_CLASSIFY {
         path "${asvs.simpleName}_rel-abundance.tsv", emit: ch_abundance
 
     script:
-    def db = params.db == "emu" ? "emu_default" : "silva_db"
+    def db = params.db == "emu" ? "--emu-db /databases/emu_default" : "--silva-db /databases/silva_db"
     """
     if [ -s "${asvs}/final_asvs.fasta" ]; then
-        savont classify -i $asvs -o . --emu-db /databases/$db -t $task.cpus
+        savont classify -i $asvs -o . $db -t $task.cpus
         mv species_abundance.tsv ${asvs.simpleName}_rel-abundance.tsv
     else
         # Create empty abundance file with headers if no ASVs found
