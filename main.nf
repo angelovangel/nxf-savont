@@ -1,6 +1,6 @@
 include {DORADO_BASECALL; DORADO_BASECALL_BARCODING} from "./modules/basecall.nf"
 include {MERGE_READS; READ_STATS; READ_HIST; CONVERT_EXCEL; VALIDATE_SAMPLESHEET; CONVERT_READS; SUBSAMPLE_READS} from './modules/reads.nf'
-include {SAVONT_ASV; SAVONT_CLASSIFY; SAVONT_COMBINE} from './modules/taxonomy.nf'
+include {SAVONT_ASV; SAVONT_CLASSIFY; SAVONT_COMBINE; TAXONKIT_LINEAGE} from './modules/taxonomy.nf'
 
 include {MAKE_REPORT; VERSIONS} from './modules/report.nf'
 
@@ -106,6 +106,7 @@ workflow {
     SAVONT_ASV(ch_reads_conv)
     SAVONT_CLASSIFY(SAVONT_ASV.out.ch_asvs)
     SAVONT_COMBINE(SAVONT_CLASSIFY.out.ch_abundance.collect())
+    TAXONKIT_LINEAGE(SAVONT_CLASSIFY.out.ch_abundance)
     ch_versions = ch_versions.mix(SAVONT_ASV.out.versions.first(), SAVONT_CLASSIFY.out.versions.first(), SAVONT_COMBINE.out.versions)
     
     MAKE_REPORT(
