@@ -404,6 +404,7 @@ function renderStandardTree() {
     const svgEl = document.getElementById('treeSvg');
 
     const sampleName = document.getElementById('treeSampleSelect').value;
+    const cutoff = parseFloat(document.getElementById('cutoffSelect').value) || 0;
     const sample = samples.find(s => s.name === sampleName);
 
     if (!sample) return;
@@ -415,7 +416,7 @@ function renderStandardTree() {
 
         sample.data.forEach(t => {
             let current = root;
-            if (t.abundance <= 0) return;
+            if (t.abundance < cutoff) return; // Filter by cutoff
 
             ranks.forEach((rank, i) => {
                 const name = t[rank];
@@ -468,7 +469,7 @@ function renderStandardTree() {
 
         const radiusScale = d3.scaleSqrt()
             .domain([0, 1])
-            .range([3, 18]);
+            .range([3, 22]);
 
         const phylumColorScale = d3.scaleOrdinal(d3.schemeCategory10);
         const defaultColor = "#94a3b8";
@@ -604,10 +605,10 @@ function renderStandardTree() {
                 .attr("dy", "0.31em")
                 .style("font-size", "11px")
                 .style("fill-opacity", 0)
-                .each(function() {
+                .each(function () {
                     const el = d3.select(this);
                     el.append("tspan").attr("class", "name-tspan");
-                    el.append("tspan").attr("class", "pct-tspan").style("font-weight", "bold").style("fill", "#64748b");
+                    el.append("tspan").attr("class", "pct-tspan").style("font-weight", "bold").style("font-size", "12px").style("fill", "#64748b");
                 });
 
             const nodeUpdate = nodeEnter.merge(node);
@@ -622,7 +623,7 @@ function renderStandardTree() {
                 .style("fill-opacity", d => (d._children || !d.children) ? 1 : 0.6); // Slightly fade expanded parent nodes
 
             const textUpdate = nodeUpdate.select("text");
-            
+
             textUpdate.transition().duration(500)
                 .style("fill-opacity", 1)
                 .attr("x", d => d.children || d._children ? -(radiusScale(d.value) + 8) : (radiusScale(d.value) + 8))
@@ -657,7 +658,7 @@ function renderStandardTree() {
             if (count > 10) break;
             bestDepth = d;
         }
-        
+
         if (bestDepth > 0) {
             expandToLevel(root, bestDepth);
         } else {

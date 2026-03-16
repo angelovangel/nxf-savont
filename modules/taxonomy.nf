@@ -53,7 +53,7 @@ process SAVONT_CLASSIFY {
     def db = params.db == "emu" ? "--emu-db /databases/emu_default" : "--silva-db /databases/silva_db"
     """
     if [ -s "${asvs}/final_asvs.fasta" ]; then
-        savont classify -i $asvs -o . $db -t $task.cpus
+        savont classify -i $asvs -o . $db -t $task.cpus --species-threshold ${params.species_threshold} --genus-threshold ${params.genus_threshold}
         mv species_abundance.tsv ${asvs.simpleName}_rel-abundance.tsv
     else
         # Create empty abundance file with headers if no ASVs found

@@ -69,6 +69,40 @@ def parse_combined_abundance(file_path):
         print(f"Warning: Could not parse combined results {file_path}: {e}", file=sys.stderr)
     return data
 
+def render_wfinfo_block(title, info_list, add_top_border=False):
+    if not info_list:
+        return ""
+    
+    border_style = "border-top: 1px solid rgba(255, 255, 255, 0.2);" if add_top_border else ""
+    html = f"""
+    <details style="padding-top: 5px; margin-top: 5px; {border_style} text-align: left;">
+      <summary style="font-size: 0.8em; cursor: pointer; color: white;">{title}</summary>
+      <div style="padding-top: 5px; text-align: left; width: 100%;">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 5px; color: white; border: none; background: inherit;">
+          <tbody>
+    """
+    
+    # Process pairs since savont uses list of tuples, unlike alignment's list of dicts
+    for i, (key, value) in enumerate(info_list):
+        if i > 0:
+            html += '<tr><td colspan="2" style="border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding: 0;"></td></tr>'
+        
+        display_key = key.replace('_', ' ').title()
+        html += f"""
+        <tr>
+          <td style="padding: 3px 10px 3px 0; font-weight: 500; border: none; background: inherit; font-family: 'Courier New', monospace; color: white; white-space: nowrap; font-size: 0.8em; width: 180px;">{display_key}:</td>
+          <td style="padding: 3px 0; border: none; background: inherit; font-family: 'Courier New', monospace; color: white; font-size: 0.8em;">{value}</td>
+        </tr>
+        """
+    
+    html += """
+          </tbody>
+        </table>
+      </div>
+    </details>
+    """
+    return html
+
     return html
 
 def main():
@@ -76,12 +110,26 @@ def main():
     parser.add_argument('--summary', required=True, help='Summary TSV file')
     parser.add_argument('--combined', required=True, help='Combined TSV file')
     parser.add_argument('--abundances', nargs='*', help='Relative abundance TSV files', default=[])
+    parser.add_argument('--wfinfo', help='Optional CSV file with workflow properties', default=None)
     
     args = parser.parse_args()
 
     summary_tsv = args.summary
     combined_tsv = args.combined
     rel_abundance_files = args.abundances
+    wfinfo_csv = args.wfinfo
+
+    # Parse workflow info
+    wf_info = []
+    if wfinfo_csv and os.path.exists(wfinfo_csv):
+        try:
+            with open(wfinfo_csv, 'r') as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    if len(row) >= 2:
+                        wf_info.append((row[0], row[1]))
+        except Exception as e:
+            print(f"Warning: Could not parse workflow info {wfinfo_csv}: {e}", file=sys.stderr)
 
     # Parse summary counts
     summary_data = []
@@ -168,6 +216,9 @@ def main():
         print(f"Warning: Could not load {js_template_path}: {e}", file=sys.stderr)
         js_content = f"// Error loading report.js: {e}"
 
+    # Render Workflow Info
+    wf_info_block = render_wfinfo_block("Workflow Details", wf_info, add_top_border=True)
+
     html_template = """<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -222,31 +273,28 @@ def main():
         .report-header {
             background: #374151;
             color: white;
-            padding: 16px;
+            padding: 8px 10px;
             margin-bottom: 2rem;
             border-radius: 1rem;
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.15);
-        }
-        .report-header-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
+            text-align: center;
         }
         .report-header-main {
             display: flex;
+            justify-content: center;
             align-items: center;
-            gap: 12px;
+            gap: 15px;
+            margin-bottom: 2px;
         }
         .report-header h2 {
             font-size: 1.2em;
+            margin-bottom: 0;
             font-weight: 700;
-            margin: 0;
         }
         .report-datetime {
-            opacity: 0.8;
+            opacity: 0.9;
             font-size: 0.8em;
-            margin: 0;
+            margin-bottom: 0;
             text-align: right;
         }
         .repo-link {
@@ -264,15 +312,14 @@ def main():
     <div class="max-w-7xl mx-auto space-y-8">
         <!-- Report Header -->
         <div class="report-header">
-            <div class="report-header-top">
-                <div class="report-header-main">
-                    <h2>NXF-SAVONT Report</h2>
-                    <a href="https://github.com/angelovangel/nxf-savont" class="repo-link" target="_blank" title="View Source on GitHub">
-                        <svg height="22" viewBox="0 0 16 16" version="1.1" width="22" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
-                    </a>
-                </div>
-                <div class="report-datetime">{REPORT_DATETIME}</div>
+            <div class="report-header-main">
+                <h2>NXF-SAVONT Report</h2>
+                <a href="https://github.com/angelovangel/nxf-savont" class="repo-link" target="_blank" title="View Source on GitHub">
+                    <svg height="22" viewBox="0 0 16 16" version="1.1" width="22" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+                </a>
             </div>
+            <div class="report-datetime">{REPORT_DATETIME}</div>
+            {{WF_INFO}}
         </div>
         <!-- Summary -->
         <details class="collapsible-section" open>
@@ -366,7 +413,7 @@ def main():
         <details class="collapsible-section" open>
             <summary>
                 <div class="flex justify-between items-center w-full pr-8">
-                    <h1 class="text-xl font-bold text-gray-900">Abundance Heatmap</h1>
+                    <h1 class="text-xl text-gray-900">Abundance Heatmap</h1>
                     <button onclick="downloadHeatmapCSV(event)" class="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors text-sm font-semibold">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                         Download CSV
@@ -393,6 +440,15 @@ def main():
                             <!-- Options populated by JS -->
                         </select>
                     </div>
+                    <div class="w-48">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Abundance Cutoff</label>
+                        <select id="cutoffSelect" class="w-full border-gray-300 rounded-md shadow-sm p-2 outline-none focus:ring-2 focus:ring-indigo-500" onchange="renderStandardTree()">
+                            <option value="0">Show all</option>
+                            <option value="0.01">> 1%</option>
+                            <option value="0.001">> 0.1%</option>
+                            <option value="0.0001">> 0.01%</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden relative min-h-[600px]" id="treeContainer">
                     <svg id="treeSvg" class="w-full" style="min-height: 600px;"></svg>
@@ -409,6 +465,7 @@ def main():
 """
     html_content = html_template.replace('{{TABLE_HEADER}}', table_header_html)
     html_content = html_content.replace('{{TABLE_ROWS}}', table_rows_html)
+    html_content = html_content.replace('{{WF_INFO}}', wf_info_block)
     html_content = html_content.replace('{{JS_CONTENT}}', js_content)
     html_content = html_content.replace('{REPORT_DATETIME}', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     
