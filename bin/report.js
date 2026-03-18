@@ -1,6 +1,7 @@
 const samples = __SAMPLES_DATA__;
 const heatmapData = __HEATMAP_DATA__;
 const summaryData = __SUMMARY_DATA__;
+const lineageData = typeof __LINEAGE_DATA__ !== 'undefined' ? __LINEAGE_DATA__ : {};
 let chartInstance = null;
 
 // --- Dropdown Management ---
@@ -100,11 +101,22 @@ function renderHeatmap() {
             taxonTaxidSets[taxonName] = new Set();
 
             // Capture lineage up to current rank
-            const lineage = [];
-            for (let i = 0; i <= rankIndex; i++) {
-                const r = ranks[i];
-                if (t[r] && t[r] !== 'Unknown') {
-                    lineage.push({ rank: r, name: t[r] });
+            let lineage = [];
+            const taxonKitLineage = lineageData[t.tax_id];
+            
+            if (taxonKitLineage) {
+                const rankIdx = taxonKitLineage.findIndex(l => l.name === taxonName);
+                if (rankIdx !== -1) {
+                    lineage = taxonKitLineage.slice(0, rankIdx + 1);
+                } else {
+                    lineage = taxonKitLineage;
+                }
+            } else {
+                for (let i = 0; i <= rankIndex; i++) {
+                    const r = ranks[i];
+                    if (t[r] && t[r] !== 'Unknown') {
+                        lineage.push({ rank: r, name: t[r] });
+                    }
                 }
             }
             taxonLineages[taxonName] = lineage;
@@ -547,16 +559,32 @@ function renderStandardTree() {
 
     // 1. Build hierarchical data
     const buildHierarchy = () => {
-        const root = { name: "Life", children: [], tax_id: "root" };
-        const ranks = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'];
+        const root = { name: "Life", children: [], tax_id: "root", rank: "root" };
+        const fixedRanks = ['superkingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'];
 
         sample.data.forEach(t => {
             let current = root;
             if (t.abundance < cutoff) return; // Filter by cutoff
 
-            ranks.forEach((rank, i) => {
-                const name = t[rank];
-                if (!name || name === "Unknown") return;
+            let lineageArray = fixedRanks.map(targetRank => {
+                let name = "Unknown";
+                if (t.tax_id && lineageData[t.tax_id]) {
+                    const tk = lineageData[t.tax_id];
+                    let match = tk.find(l => l.rank === targetRank);
+                    if (targetRank === 'superkingdom' && !match) {
+                        match = tk.find(l => l.rank === 'domain');
+                    }
+                    if (match) name = match.name;
+                } else {
+                    name = t[targetRank] || "Unknown";
+                }
+                return { rank: targetRank, name: name };
+            });
+
+            lineageArray.forEach((item, i) => {
+                const name = item.name;
+                const rank = item.rank;
+                if (!name) return;
 
                 let child = current.children.find(c => c.name === name);
                 if (!child) {
@@ -564,12 +592,12 @@ function renderStandardTree() {
                         name: name,
                         rank: rank,
                         children: [],
-                        tax_id: (i === ranks.length - 1) ? t.tax_id : null
+                        tax_id: (i === fixedRanks.length - 1) ? t.tax_id : null
                     };
                     current.children.push(child);
                 }
 
-                if (i === ranks.length - 1) {
+                if (i === fixedRanks.length - 1) {
                     child.value = (child.value || 0) + t.abundance;
                 }
                 current = child;
@@ -597,7 +625,6 @@ function renderStandardTree() {
         const root = d3.hierarchy(data);
         root.sum(d => d.value || 0);
 
-        // Initial state: start fully expanded
         // To align ranks, we need a fixed level step
         const levelStep = (width - margin.left - margin.right) / 7;
 
@@ -773,7 +800,10 @@ function renderStandardTree() {
             textUpdate.select(".pct-tspan")
                 .attr("x", d => d.children || d._children ? -(radiusScale(d.value) + 8) : (radiusScale(d.value) + 8))
                 .attr("dy", "1.3em")
-                .text(d => `${(d.value * 100).toFixed(1)}%`);
+                .text(d => {
+                    const pct = d.value * 100;
+                    return pct < 0.1 && pct > 0 ? `${pct.toFixed(2)}%` : `${pct.toFixed(1)}%`;
+                });
 
             nodeUpdate.select("title").remove();
             nodeUpdate.append("title")
@@ -787,11 +817,11 @@ function renderStandardTree() {
             nodeExit.select("text").style("fill-opacity", 0);
         }
 
-        // Initialize with a manageable expansion (≤ 10 nodes at the deepest possible level)
+        // Initialize with a manageable expansion (≤ 15 nodes at the deepest possible level)
         let bestDepth = 0;
         for (let d = 1; d <= 7; d++) {
             const count = root.descendants().filter(n => n.depth === d).length;
-            if (count > 10) break;
+            if (count > 15) break;
             bestDepth = d;
         }
 

@@ -34,8 +34,8 @@ RUN ARCH=${TARGETARCH:-$(uname -m)} && \
 
 # NCBI Taxonomy database (for taxonkit)
 RUN wget -q ftp://ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz && \
-    mkdir -p /root/.taxonkit && \
-    tar -zxvf taxdump.tar.gz -C /root/.taxonkit names.dmp nodes.dmp delnodes.dmp merged.dmp && \
+    mkdir -p /opt/taxonkit && \
+    tar -zxvf taxdump.tar.gz -C /opt/taxonkit names.dmp nodes.dmp delnodes.dmp merged.dmp && \
     rm taxdump.tar.gz
 
 # Savont databases
@@ -51,10 +51,11 @@ LABEL maintainer="https://github.com/angelovangel"
 COPY --from=builder /usr/local/cargo/bin/savont /usr/local/bin/savont
 COPY --from=builder /faster/target/release/faster /usr/local/bin/faster
 COPY --from=builder /usr/local/cargo/bin/taxonkit /usr/local/bin/taxonkit
-COPY --from=builder /root/.taxonkit /root/.taxonkit
+COPY --from=builder /opt/taxonkit /opt/taxonkit
 COPY --from=builder /databases /databases
 
 # 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && chmod -R a+rx /opt/taxonkit

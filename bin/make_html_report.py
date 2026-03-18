@@ -69,6 +69,30 @@ def parse_combined_abundance(file_path):
         print(f"Warning: Could not parse combined results {file_path}: {e}", file=sys.stderr)
     return data
 
+def parse_lineages(lineage_files):
+    taxon_lineages = {}
+    for fpath in lineage_files:
+        try:
+            with open(fpath, 'r') as f:
+                reader = csv.reader(f, delimiter='\t')
+                for row in reader:
+                    if len(row) >= 4:
+                        tax_id = row[0]
+                        if tax_id == 'tax_id' or not tax_id:
+                            continue
+                        names = row[2].split(';') if row[2] else []
+                        ranks = row[3].split(';') if row[3] else []
+                        if tax_id not in taxon_lineages:
+                            lineage = []
+                            for n, r in zip(names, ranks):
+                                if n and r:  # avoid empty
+                                    lineage.append({'rank': r, 'name': n})
+                            if lineage:
+                                taxon_lineages[tax_id] = lineage
+        except Exception as e:
+            print(f"Warning: Could not parse lineage file {fpath}: {e}", file=sys.stderr)
+    return taxon_lineages
+
 def render_wfinfo_block(title, info_list, add_top_border=False):
     if not info_list:
         return ""
@@ -110,6 +134,7 @@ def main():
     parser.add_argument('--summary', required=True, help='Summary TSV file')
     parser.add_argument('--combined', required=True, help='Combined TSV file')
     parser.add_argument('--abundances', nargs='*', help='Relative abundance TSV files', default=[])
+    parser.add_argument('--lineages', nargs='*', help='Taxonkit lineage TSV files', default=[])
     parser.add_argument('--wfinfo', help='Optional CSV file with workflow properties', default=None)
     
     args = parser.parse_args()
@@ -117,7 +142,10 @@ def main():
     summary_tsv = args.summary
     combined_tsv = args.combined
     rel_abundance_files = args.abundances
+    lineage_files = args.lineages
     wfinfo_csv = args.wfinfo
+
+    taxon_lineages = parse_lineages(lineage_files)
 
     # Parse workflow info
     wf_info = []
@@ -213,6 +241,7 @@ def main():
         js_content = js_content.replace('__SAMPLES_DATA__', json.dumps(all_samples))
         js_content = js_content.replace('__HEATMAP_DATA__', json.dumps(heatmap_data))
         js_content = js_content.replace('__SUMMARY_DATA__', json.dumps(summary_data))
+        js_content = js_content.replace('__LINEAGE_DATA__', json.dumps(taxon_lineages))
     except Exception as e:
         print(f"Warning: Could not load {js_template_path}: {e}", file=sys.stderr)
         js_content = f"// Error loading report.js: {e}"

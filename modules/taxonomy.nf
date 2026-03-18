@@ -100,10 +100,10 @@ process TAXONKIT_LINEAGE {
 
     script:
     """
-    cut -f1,2 $abundance_file | taxonkit lineage --data-dir /root/.taxonkit > ${abundance_file.simpleName}_lineage.tsv
+    cut -f1,2 $abundance_file | taxonkit lineage -R --data-dir /opt/taxonkit > ${abundance_file.simpleName}_lineage.tsv
     
     cat <<EOF > versions.txt
-    ${task.process}: taxonkit \$(taxonkit --version 2>&1 | sed 's/taxonkit //')
+    ${task.process}: taxonkit \$(taxonkit -h | grep Version 2>&1 | sed 's/Version: //')
     EOF
     """
 }

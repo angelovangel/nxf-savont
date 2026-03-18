@@ -107,12 +107,13 @@ workflow {
     SAVONT_CLASSIFY(SAVONT_ASV.out.ch_asvs)
     SAVONT_COMBINE(SAVONT_CLASSIFY.out.ch_abundance.collect())
     TAXONKIT_LINEAGE(SAVONT_CLASSIFY.out.ch_abundance)
-    ch_versions = ch_versions.mix(SAVONT_ASV.out.versions.first(), SAVONT_CLASSIFY.out.versions.first(), SAVONT_COMBINE.out.versions)
+    ch_versions = ch_versions.mix(SAVONT_ASV.out.versions.first(), SAVONT_CLASSIFY.out.versions.first(), SAVONT_COMBINE.out.versions, TAXONKIT_LINEAGE.out.versions)
     
     MAKE_REPORT(
         READ_STATS.out.stats.collect(),
         SAVONT_ASV.out.counts.collect(),
         SAVONT_CLASSIFY.out.ch_abundance.collect().ifEmpty([]),
+        TAXONKIT_LINEAGE.out.ch_lineage.collect().ifEmpty([]),
         SAVONT_COMBINE.out.ch_combined
     )
 

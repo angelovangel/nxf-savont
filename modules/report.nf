@@ -6,6 +6,7 @@ process MAKE_REPORT {
         path "raw_stats/*"
         path "filtered/*"
         path "taxonomy/*"
+        path "lineage/*"
         path "combined_species.tsv"
 
     output:
@@ -49,7 +50,7 @@ process MAKE_REPORT {
     EOF
 
     # Generate HTML report
-    make_html_report.py --summary summary_counts.tsv --combined combined_species.tsv --abundances taxonomy/*.tsv --wfinfo wfinfo.csv
+    make_html_report.py --summary summary_counts.tsv --combined combined_species.tsv --abundances taxonomy/*.tsv --lineages lineage/*.tsv --wfinfo wfinfo.csv
     """
 }
 
