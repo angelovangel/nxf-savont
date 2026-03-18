@@ -52,6 +52,18 @@ function getSelectedSampleNames() {
 }
 
 // --- Heatmap Logic ---
+function getTaxonName(d, rank) {
+    if (d.tax_id && lineageData[d.tax_id]) {
+        const tkLineage = lineageData[d.tax_id];
+        let match = tkLineage.find(l => l.rank === rank);
+        if (rank === 'superkingdom' && !match) {
+            match = tkLineage.find(l => l.rank === 'domain');
+        }
+        if (match) return match.name;
+    }
+    return d[rank] || 'Unknown';
+}
+
 function getHeatmapColor(val) {
     if (val <= 0) return { bg: '#f9fafb', text: 'black' };
     const scaled = Math.pow(val, 0.4);
@@ -95,7 +107,7 @@ function renderHeatmap() {
     const rankIndex = ranks.indexOf(rank);
 
     heatmapData.taxa.forEach(t => {
-        const taxonName = t[rank] || 'Unknown';
+        const taxonName = getTaxonName(t, rank);
         if (!aggregated[taxonName]) {
             aggregated[taxonName] = new Array(heatmapData.samples.length).fill(0);
             taxonTaxidSets[taxonName] = new Set();
@@ -352,7 +364,7 @@ function updateChart() {
     const presence = {};
     selectedSamples.forEach(s => {
         s.data.forEach(d => {
-            const taxon = d[rank] || 'Unknown';
+            const taxon = getTaxonName(d, rank);
             globalTotals[taxon] = (globalTotals[taxon] || 0) + d.abundance;
             if (!presence[taxon]) presence[taxon] = new Set();
             if (d.abundance > 0) presence[taxon].add(s.name);
@@ -364,14 +376,14 @@ function updateChart() {
 
     const datasets = topTaxa.map((taxon, i) => {
         const taxonData = selectedSamples.map(s => {
-            const match = s.data.filter(d => d[rank] === taxon);
+            const match = s.data.filter(d => getTaxonName(d, rank) === taxon);
             return { abundance: match.reduce((sum, d) => sum + d.abundance, 0) * 100, counts: Math.round(match.reduce((sum, d) => sum + d.counts, 0)) };
         });
         return { label: taxon, data: taxonData.map(d => d.abundance), counts: taxonData.map(d => d.counts), backgroundColor: getColor(taxon, i, topTaxa.length) };
     });
 
     const otherData = selectedSamples.map(s => {
-        const other = s.data.filter(d => !topTaxa.includes(d[rank]));
+        const other = s.data.filter(d => !topTaxa.includes(getTaxonName(d, rank)));
         return { abundance: other.reduce((sum, d) => sum + d.abundance, 0) * 100, counts: Math.round(other.reduce((sum, d) => sum + d.counts, 0)) };
     });
 
