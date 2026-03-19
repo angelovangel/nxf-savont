@@ -2,6 +2,7 @@ const samples = __SAMPLES_DATA__;
 const heatmapData = __HEATMAP_DATA__;
 const summaryData = __SUMMARY_DATA__;
 const lineageData = typeof __LINEAGE_DATA__ !== 'undefined' ? __LINEAGE_DATA__ : {};
+const rarefactionData = typeof __RAREFACTION_DATA__ !== 'undefined' ? __RAREFACTION_DATA__ : null;
 let chartInstance = null;
 
 // --- Dropdown Management ---
@@ -21,6 +22,7 @@ function toggleAllSamples(checked) {
     document.querySelectorAll('#sampleSelector input').forEach(cb => cb.checked = checked);
     updateChart();
     renderHeatmap();
+    if (typeof renderRarefaction === 'function') renderRarefaction();
 }
 
 function populateSampleSelector() {
@@ -34,6 +36,7 @@ function populateSampleSelector() {
                 cb.checked = !cb.checked;
                 updateChart();
                 renderHeatmap();
+                if (typeof renderRarefaction === 'function') renderRarefaction();
             }
         };
         div.innerHTML = `<input type="checkbox" id="sample-${i}" value="${s.name}" checked class="mr-2 cursor-pointer">
@@ -42,6 +45,7 @@ function populateSampleSelector() {
             e.stopPropagation();
             updateChart();
             renderHeatmap();
+            if (typeof renderRarefaction === 'function') renderRarefaction();
         });
         container.appendChild(div);
     });
@@ -415,6 +419,7 @@ document.getElementById('topNInput').addEventListener('change', () => {
 document.getElementById('colorSchemeSelect').addEventListener('change', () => {
     colorCache = {};
     updateChart();
+    if (typeof renderRarefaction === 'function') renderRarefaction();
 });
 
 // --- Download Logic ---
@@ -852,6 +857,139 @@ function renderStandardTree() {
     }
 }
 
+// --- Rarefaction Curve Logic ---
+function renderRarefaction() {
+    if (!rarefactionData || Object.keys(rarefactionData).length === 0) return;
+    
+    const RAW = rarefactionData;
+    const samplesRaw = Object.keys(RAW);
+    const container = document.getElementById('rarefactionChartContainer');
+    const svgEl = document.getElementById('rarefactionSvg');
+    if (!svgEl) return;
+    
+    const selectedNames = getSelectedSampleNames();
+    const activeSamples = samplesRaw.filter(s => selectedNames.includes(s));
+    
+    if (activeSamples.length === 0) {
+        svgEl.innerHTML = '';
+        const msg = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        msg.setAttribute("x", "20");
+        msg.setAttribute("y", "30");
+        msg.setAttribute("fill", "#666");
+        msg.textContent = "No samples selected.";
+        svgEl.appendChild(msg);
+        return;
+    }
+    
+    svgEl.innerHTML = '';
+    
+    const margin = {top:20,right:150,bottom:50,left:65};
+    const W = container.clientWidth || 820;
+    const H = 440;
+    const iW = W - margin.left - margin.right;
+    const iH = H - margin.top  - margin.bottom;
+    
+    const svg = d3.select(svgEl).attr("viewBox", [0, 0, W, H]);
+    const g   = svg.append("g").attr("transform",`translate(${margin.left},${margin.top})`);
+    
+    const xMax = d3.max(activeSamples.flatMap(s=>RAW[s].map(d=>d.depth)));
+    const yMax = d3.max(activeSamples.flatMap(s=>RAW[s].map(d=>d.mean+d.std)));
+    
+    const x = d3.scaleLinear().domain([0,xMax*1.02]).range([0,iW]);
+    const y = d3.scaleLinear().domain([0,yMax*1.1]).range([iH,0]);
+    
+    g.append("g").attr("class","grid").attr("transform",`translate(0,${iH})`)
+      .call(d3.axisBottom(x).tickSize(-iH).tickFormat("").tickSizeOuter(0))
+      .selectAll("line").attr("stroke", "#e8e8e8").attr("stroke-dasharray", "3,3");
+      
+    g.append("g").attr("class","grid")
+      .call(d3.axisLeft(y).tickSize(-iW).tickFormat("").tickSizeOuter(0))
+      .selectAll("line").attr("stroke", "#e8e8e8").attr("stroke-dasharray", "3,3");
+      
+    g.selectAll(".domain").remove();
+    
+    g.append("g").attr("class","axis").attr("transform",`translate(0,${iH})`)
+      .call(d3.axisBottom(x).tickFormat(d3.format(",d")))
+      .append("text").attr("x",iW/2).attr("y",40)
+        .attr("fill","#333").attr("text-anchor","middle").style("font-size","12px")
+        .text("Sequencing Depth (reads)");
+        
+    g.append("g").attr("class","axis").call(d3.axisLeft(y).ticks(6))
+      .append("text").attr("transform","rotate(-90)").attr("x",-iH/2).attr("y",-50)
+        .attr("fill","#333").attr("text-anchor","middle").style("font-size","12px")
+        .text("Observed Species (Richness)");
+        
+    const areaGen = d3.area().x(d=>x(d.depth)).y0(d=>y(Math.max(0,d.mean-d.std))).y1(d=>y(d.mean+d.std));
+    const lineGen = d3.line().x(d=>x(d.depth)).y(d=>y(d.mean));
+    
+    const sampleGroups = {};
+    const muted = {};
+    const tb = document.getElementById('toggleBand');
+    const showBand = tb ? tb.checked : true;
+    
+    const tooltip = document.getElementById('rarefactionTooltip');
+    
+    activeSamples.forEach((s, i) => {
+      const grp = g.append("g");
+      sampleGroups[s] = grp;
+      muted[s] = false;
+      const c = getColor("sample_" + s, i, activeSamples.length);
+      
+      grp.append("path").datum(RAW[s]).attr("class","band").attr("fill",c)
+         .style("opacity", 0.18).style("display", showBand ? null : "none")
+         .attr("d",areaGen);
+      grp.append("path").datum(RAW[s]).attr("class","line").attr("stroke",c)
+         .attr("fill", "none").attr("stroke-width", 2.5)
+         .attr("d",lineGen);
+         
+      grp.selectAll(".dot").data(RAW[s]).enter().append("circle").attr("class","dot")
+        .attr("cx",d=>x(d.depth)).attr("cy",d=>y(d.mean)).attr("fill",c)
+        .attr("r", 5).style("opacity", 0).style("cursor", "pointer")
+        .on("mousemove",(event,d)=>{
+          d3.select(event.currentTarget).style("opacity", 1);
+          tooltip.style.display="block";
+          tooltip.style.opacity = 1;
+          const rect = container.getBoundingClientRect();
+          let tx = event.clientX - rect.left + 14;
+          let ty = event.clientY - rect.top - 14;
+          tooltip.style.left= tx + "px";
+          tooltip.style.top= ty + "px";
+          tooltip.innerHTML=`<strong>${s}</strong><br>Depth: <b>${d3.format(",")(d.depth)}</b><br>Richness: <b>${d.mean.toFixed(2)}</b><br>&plusmn;SD: ${d.std.toFixed(2)}`;
+        })
+        .on("mouseleave",(event)=>{ 
+          d3.select(event.currentTarget).style("opacity", 0);
+          tooltip.style.opacity = 0; 
+          tooltip.style.display="none"; 
+        });
+    });
+    
+    const legendG = svg.append("g").attr("transform",`translate(${margin.left+iW+18},${margin.top+10})`);
+    legendG.append("text").text("Sample")
+      .attr("font-size","12px").attr("font-weight","600").attr("fill","#333").attr("dy","0");
+      
+    activeSamples.forEach((s, i) => {
+      const c = getColor("sample_" + s, i, activeSamples.length);
+      const item = legendG.append("g").attr("class","leg-item")
+        .attr("transform",`translate(0,${20 + i*22})`)
+        .style("cursor","pointer")
+        .on("click",()=>{
+          muted[s]=!muted[s];
+          item.style("opacity",muted[s]?0.3:1);
+          sampleGroups[s].style("opacity",muted[s]?0:1).style("pointer-events",muted[s]?"none":"all");
+        });
+      item.append("line").attr("x1",0).attr("x2",22).attr("y1",0).attr("y2",0)
+        .attr("stroke",c).attr("stroke-width",2.5);
+      item.append("text").text(s)
+        .attr("x",28).attr("dy","0.35em").attr("font-size","11px").attr("fill","#444");
+    });
+    
+    if (tb) {
+        tb.onchange = function() { 
+            svg.selectAll(".band").style("display", this.checked ? null : "none"); 
+        };
+    }
+}
+
 // Initialize
 window.onload = () => {
     populateSampleSelector();
@@ -859,6 +997,7 @@ window.onload = () => {
     updateChart();
     renderHeatmap();
     renderStandardTree();
+    if (typeof renderRarefaction === 'function') renderRarefaction();
 
     // Initial sort for summary table
     setTimeout(() => sortSummaryTable(0), 100);

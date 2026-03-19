@@ -136,6 +136,7 @@ def main():
     parser.add_argument('--abundances', nargs='*', help='Relative abundance TSV files', default=[])
     parser.add_argument('--lineages', nargs='*', help='Taxonkit lineage TSV files', default=[])
     parser.add_argument('--wfinfo', help='Optional CSV file with workflow properties', default=None)
+    parser.add_argument('--rarefaction', help='Optional JSON file with rarefaction curve data', default=None)
     
     args = parser.parse_args()
 
@@ -144,6 +145,7 @@ def main():
     rel_abundance_files = args.abundances
     lineage_files = args.lineages
     wfinfo_csv = args.wfinfo
+    rarefaction_json = args.rarefaction
 
     taxon_lineages = parse_lineages(lineage_files)
 
@@ -158,6 +160,15 @@ def main():
                         wf_info.append((row[0], row[1]))
         except Exception as e:
             print(f"Warning: Could not parse workflow info {wfinfo_csv}: {e}", file=sys.stderr)
+
+    # Parse rarefaction
+    rarefaction_data = {}
+    if rarefaction_json and os.path.exists(rarefaction_json):
+        try:
+            with open(rarefaction_json, 'r') as f:
+                rarefaction_data = json.load(f)
+        except Exception as e:
+            print(f"Warning: Could not parse {rarefaction_json}: {e}", file=sys.stderr)
 
     # Parse summary counts
     summary_data = []
@@ -242,6 +253,7 @@ def main():
         js_content = js_content.replace('__HEATMAP_DATA__', json.dumps(heatmap_data))
         js_content = js_content.replace('__SUMMARY_DATA__', json.dumps(summary_data))
         js_content = js_content.replace('__LINEAGE_DATA__', json.dumps(taxon_lineages))
+        js_content = js_content.replace('__RAREFACTION_DATA__', json.dumps(rarefaction_data))
     except Exception as e:
         print(f"Warning: Could not load {js_template_path}: {e}", file=sys.stderr)
         js_content = f"// Error loading report.js: {e}"
@@ -491,6 +503,23 @@ def main():
                 <div id="chartContainer" class="relative min-h-[300px]">
                     <div id="chart-tooltip" class="absolute pointer-events-none z-50 p-3 bg-gray-800 text-white rounded shadow-xl opacity-0 transition-opacity duration-200 w-72 overflow-hidden"></div>
                     <canvas id="chartCanvas"></canvas>
+                </div>
+            </div>
+        </details>
+
+        <!-- Rarefaction Plots -->
+        <details class="collapsible-section" open>
+            <summary><h1 class="text-xl text-gray-900">Alpha Rarefaction Curve</h1></summary>
+            <div class="section-content">
+                <div id="rarefactionControls" class="flex gap-4 mb-4">
+                    <label class="flex items-center text-sm font-medium text-gray-700 cursor-pointer">
+                        <input type="checkbox" id="toggleBand" checked class="mr-2 rounded text-indigo-600 focus:ring-indigo-500">
+                        Show CI band
+                    </label>
+                </div>
+                <div id="rarefactionChartContainer" class="relative min-h-[440px] bg-white border border-gray-100 rounded-xl overflow-hidden p-4">
+                    <svg id="rarefactionSvg" class="w-full" style="min-height: 440px;"></svg>
+                    <div id="rarefactionTooltip" class="fixed pointer-events-none z-50 p-3 bg-[rgba(20,20,40,0.88)] text-white text-[12px] rounded-lg shadow-xl opacity-0 transition-opacity duration-150 hidden leading-relaxed"></div>
                 </div>
             </div>
         </details>

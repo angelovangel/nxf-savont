@@ -5,7 +5,7 @@ import csv
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage: combine_savont.py <output_file> <input_files...>")
+        print("Usage: combine_lineage.py <output_file> <input_files...>")
         sys.exit(1)
 
     output_file = sys.argv[1]

@@ -1,5 +1,5 @@
 process MAKE_REPORT {
-    container 'docker.io/aangeloo/nxf-tgs:latest'
+    container 'amancevice/pandas:slim'
     publishDir "${params.outdir}", mode: 'copy'
 
     input:
@@ -49,8 +49,11 @@ process MAKE_REPORT {
     Command line,"${wf_cmd}"
     EOF
 
+    # Generate rarefaction JSON
+    rarefaction.py --lineage combined_species.tsv --readstats raw_stats/*.readstats.tsv --rarefaction rarefaction.json
+
     # Generate HTML report
-    make_html_report.py --summary summary_counts.tsv --combined combined_species.tsv --abundances taxonomy/*.tsv --lineages lineage/*.tsv --wfinfo wfinfo.csv
+    make_html_report.py --summary summary_counts.tsv --combined combined_species.tsv --abundances taxonomy/*.tsv --lineages lineage/*.tsv --wfinfo wfinfo.csv --rarefaction rarefaction.json
     """
 }
 
