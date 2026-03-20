@@ -1,5 +1,5 @@
 include {DORADO_BASECALL; DORADO_BASECALL_BARCODING} from "./modules/basecall.nf"
-include {MERGE_READS; READ_STATS; READ_HIST; CONVERT_EXCEL; VALIDATE_SAMPLESHEET; CONVERT_READS; SUBSAMPLE_READS} from './modules/reads.nf'
+include {MERGE_READS; READ_STATS; READ_HIST; CONVERT_EXCEL; VALIDATE_SAMPLESHEET; CONVERT_READS; SUBSAMPLE_READS; GET_MIN_READS; NORMALIZE_READS} from './modules/reads.nf'
 include {SAVONT_ASV; SAVONT_CLASSIFY; COMBINE_LINEAGE; TAXONKIT_LINEAGE} from './modules/taxonomy.nf'
 
 include {MAKE_REPORT; VERSIONS} from './modules/report.nf'
@@ -97,10 +97,22 @@ workflow {
     ch_reads_conv = CONVERT_READS.out[0]
     ch_versions = ch_versions.mix(CONVERT_READS.out.versions.first(), READ_STATS.out.versions.first())
     
+    ch_norm_stats = Channel.empty()
+    if (params.subsample && params.normalize) {
+        error "Both --subsample and --normalize specified. Please select only one read reduction method."
+    }
+    
     if (params.subsample) {
         SUBSAMPLE_READS(ch_reads_conv)
         ch_reads_conv = SUBSAMPLE_READS.out.reads
+        ch_norm_stats = SUBSAMPLE_READS.out.stats
         ch_versions = ch_versions.mix(SUBSAMPLE_READS.out.versions.first())
+    } else if (params.norm) {
+        GET_MIN_READS(READ_STATS.out.stats.collect())
+        NORMALIZE_READS(ch_reads_conv, GET_MIN_READS.out.min_reads)
+        ch_reads_conv = NORMALIZE_READS.out.reads
+        ch_norm_stats = NORMALIZE_READS.out.stats
+        ch_versions = ch_versions.mix(NORMALIZE_READS.out.versions.first())
     }
     
     SAVONT_ASV(ch_reads_conv)
@@ -111,6 +123,7 @@ workflow {
     
     MAKE_REPORT(
         READ_STATS.out.stats.collect(),
+        ch_norm_stats.collect().ifEmpty([]),
         SAVONT_ASV.out.counts.collect(),
         SAVONT_CLASSIFY.out.ch_abundance.collect().ifEmpty([]),
         TAXONKIT_LINEAGE.out.ch_lineage.collect().ifEmpty([]),

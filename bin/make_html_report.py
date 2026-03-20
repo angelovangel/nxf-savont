@@ -221,7 +221,7 @@ def main():
         table_rows_html += f"<tr {data_attrs} class='hover:bg-gray-50'>"
         
         # Get basis for percentage text calculation
-        total_reads = float(row.get('subsampled_reads', row.get('filtered_reads', row.get('raw_reads', 0))) or 1)
+        total_reads = float(row.get('normalised_reads', row.get('subsampled_reads', row.get('filtered_reads', row.get('raw_reads', 0)))) or 1)
         if total_reads == 0: total_reads = 1
         
         for h in headers:
@@ -229,7 +229,7 @@ def main():
             display_val = val
             
             # Formatting logic matching nxf-alignment summary stats
-            if h in ['raw_reads', 'filtered_reads', 'raw_n50']:
+            if h in ['raw_reads', 'filtered_reads', 'raw_n50', 'normalised_reads', 'subsampled_reads']:
                 try: display_val = f"{int(float(val)):,}"
                 except: pass
             elif h != 'sample':

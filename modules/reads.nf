@@ -153,6 +153,55 @@ process SUBSAMPLE_READS {
     """
 }
 
+process GET_MIN_READS {
+    container 'docker.io/aangeloo/nxf-tgs:latest'
+    
+    input:
+        path stats_files
+        
+    output:
+        env MIN_READS, emit: min_reads
+        
+    script:
+    """
+    MIN_READS=\$(awk 'FNR>1 {print \$2}' *.readstats.tsv | sort -n | head -n1)
+    """
+}
+
+process NORMALIZE_READS {
+    container 'docker.io/aangeloo/nxf-tgs:latest'
+    publishDir "${params.outdir}/00-basecall/readqc", mode: 'copy', pattern: '*norm.readstats.tsv'
+    tag "${reads.simpleName}"
+    
+    input:
+        path reads
+        val min_reads
+    
+    output:
+        path "*.norm.fastq.gz", emit: reads
+        path "*.norm.readstats.tsv", emit: stats
+        path "versions.txt", emit: versions
+    
+    script:
+    """
+    # Get current read count
+    CURRENT_READS=\$(faster -t ${reads} | awk 'FNR>1 {print \$2}')
+    
+    # Calculate proportion (min / current) reliably using POSIX locale
+    PROP=\$(LC_ALL=C awk -v min=${min_reads} -v curr=\$CURRENT_READS 'BEGIN { printf "%.6f", min / curr }')
+    
+    seqkit sample -p \${PROP} ${reads} > ${reads.simpleName}.norm.fastq
+    pigz -c ${reads.simpleName}.norm.fastq > ${reads.simpleName}.norm.fastq.gz
+    
+    # Get stats for normalized reads
+    faster -t ${reads.simpleName}.norm.fastq.gz > ${reads.simpleName}.norm.readstats.tsv
+    
+    cat <<EOF > versions.txt
+    ${task.process}: seqkit \$(seqkit -h | grep "Version: " | awk '{print \$2}')
+    EOF
+    """
+}
+
 process READ_HIST {
     container 'docker.io/aangeloo/nxf-tgs:latest'
     tag "${reads.simpleName}"
